@@ -3,7 +3,7 @@
 
 #include <string>
 
-enum TEMPLATE {BLACK, WHITE};
+enum TEMPLATE {BLACK, WHITE, CARO};
 
 class Image {
 public:
