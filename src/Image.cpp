@@ -1,30 +1,25 @@
 #include "Image.hpp"
 #include <stdexcept>
 #include <cstring>
+#include <cmath>
+#include <iostream>
 
 using namespace std;
 
-inline unsigned char *BlackGen(unsigned int, unsigned int);
-inline unsigned char *WhiteGen(unsigned int, unsigned int);
-inline unsigned char *CaroGen(unsigned int, unsigned int);
-
-Image::Image(unsigned int width, unsigned int height, TEMPLATE type) :
-    width(width), height(height) {
-    switch (type) {
-        case TEMPLATE::BLACK:
-            this->data = BlackGen(this->width, this->height);
-            return;
-        case TEMPLATE::WHITE:
-            this->data = WhiteGen(this->width, this->height);
-            return;
-        case TEMPLATE::CARO:
-            this->data = CaroGen(this->width, this->height);
-            return;
-    }
+Image::Image(unsigned int width, unsigned int height) : width(width), height(height),
+    data(new unsigned char[width * height * 3]) {
+    //TODO
 }
 
-Image::~Image() {
-    delete[] this->data;
+Image::Image(unsigned int width, unsigned int height, unique_ptr<unsigned char[]> data) :
+    width(width), height(height), data(move(data)) {
+    //TODO
+}
+
+Image::Image(unsigned int width, unsigned int height,
+    function<unique_ptr<unsigned char[]>(unsigned int, unsigned int)> dataGen):
+    width(width), height(height) {
+    this->data = dataGen(this->width, this->height);
 }
 
 void Image::save(string path) {
@@ -55,41 +50,18 @@ void Image::save(string path) {
     fwrite(bmpinfoheader, 1, 40, fileHanle);
     auto padSize = (4 - (this->width * 3) % 4) % 4;
     for (int index = 0; index < this->height; index++) {
-        fwrite(this->data + (this->width * (this->height - index - 1) * 3), 3, this->width, fileHanle);
+        fwrite(this->data.get() + (this->width * (this->height - index - 1) * 3), 3, this->width, fileHanle);
         fwrite(bmppad , 1, padSize, fileHanle);
     }
     fflush(fileHanle);
     fclose(fileHanle);
 }
 
-unsigned char *BlackGen(unsigned int width, unsigned int height) {
-    size_t size = width * height * 3;
-    auto data = new unsigned char[size];
-    memset(data, 0x00, sizeof(char) * size);
-    return data;
-}
-
-unsigned char *WhiteGen(unsigned int width, unsigned int height) {
-    size_t size = width * height * 3;
-    auto data = new unsigned char[size];
-    memset(data, 0xff, sizeof(char) * size);
-    return data;
-}
-
-unsigned char *CaroGen(unsigned int width, unsigned int height) {
-    auto data = WhiteGen(width, height);
-    auto color = 0;
-    auto size = 5;
-    auto sizex2 = size << 1;
-    for (int indexY = 0; indexY < height; indexY++) {
-        auto offset = (indexY % sizex2 < size) ? size : 0;
-        for (int indexX = 0; indexX < width; indexX++) {
-            auto pixel = data + (indexY * width + indexX) * 3;
-            color = (indexX + offset) % sizex2 < size ? 0 : 255;
-            pixel[0] = color;
-            pixel[1] = color;
-            pixel[2] = color;  
-        }
-    }
-    return data;
+Image Image::scale(unsigned int scaleWidth, unsigned int scaleHeight,
+    std::function<void(unsigned int, unsigned int, unsigned char*,
+            unsigned int, unsigned int, unsigned char*)> scaleFunction) {
+    Image tmp(scaleWidth, scaleHeight);
+    scaleFunction(this->width, this->height, this->data.get(),
+        tmp.width, tmp.height, tmp.data.get());
+    return tmp;
 }
